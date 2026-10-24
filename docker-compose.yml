@@ -1,10 +1,14 @@
 services:
   rehost-gh:
-    build: .
-    image: rehost-gh
+    image: ghcr.io/anaisbetts/rehost-gh:latest
     restart: unless-stopped
+    # Files in the bind-mounted data folder are created as this user.
     user: "${UID:-1000}:${GID:-1000}"
-    env_file: .env
+    environment:
+      # Fine-grained token; see .env.example for the permissions it needs.
+      GITHUB_TOKEN: ${GITHUB_TOKEN:?set GITHUB_TOKEN in .env}
+      # Add rehost-gh:exec to log every command run.
+      DEBUG: ${DEBUG:-rehost-gh:*,-rehost-gh:exec}
     ports:
       - "${HOST_PORT:-8080}:8080"
     volumes:
