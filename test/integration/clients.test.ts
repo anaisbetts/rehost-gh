@@ -13,6 +13,7 @@ const SETUP_TIMEOUT_MS = 10 * 60 * 1000
 const CLIENT_TIMEOUT_MS = 5 * 60 * 1000
 const PUBLISH_WAIT_MS = 2 * 60 * 1000
 const USER = `${process.getuid?.() ?? 1000}:${process.getgid?.() ?? 1000}`
+const LATEST_OUTPUT = 'rehost fixture 1.0.0 works'
 
 const PACMAN_SCRIPT = (fingerprint: string) => `
 set -euxo pipefail
@@ -154,7 +155,7 @@ describe.skipIf(!RUN)('real package manager clients', () => {
   test(
     'pacman installs from the Arch repo',
     async () => {
-      expect(await client('archlinux:latest', PACMAN_SCRIPT(manifest.fingerprint))).toContain('rehost fixture works')
+      expect(await client('archlinux:latest', PACMAN_SCRIPT(manifest.fingerprint))).toContain(LATEST_OUTPUT)
     },
     CLIENT_TIMEOUT_MS
   )
@@ -162,7 +163,7 @@ describe.skipIf(!RUN)('real package manager clients', () => {
   test(
     'apt installs from the Debian repo',
     async () => {
-      expect(await client('debian:trixie', APT_SCRIPT)).toContain('rehost fixture works')
+      expect(await client('debian:trixie', APT_SCRIPT)).toContain(LATEST_OUTPUT)
     },
     CLIENT_TIMEOUT_MS
   )
@@ -170,20 +171,27 @@ describe.skipIf(!RUN)('real package manager clients', () => {
   test(
     'dnf installs from the RPM repo',
     async () => {
-      expect(await client('fedora:latest', DNF_SCRIPT)).toContain('rehost fixture works')
+      expect(await client('fedora:latest', DNF_SCRIPT)).toContain(LATEST_OUTPUT)
     },
     CLIENT_TIMEOUT_MS
   )
 
   test('serves a Squirrel feed that matches its packages', async () => {
     const feed = `${baseUrl}/squirrel/RehostFixture/arm64`
-    const releases = await (await fetch(`${feed}/RELEASES`)).text()
-    const [sha1, fileName, size] = releases.trim().split(' ')
+    const entries = (await (await fetch(`${feed}/RELEASES`)).text())
+      .trim()
+      .split('\r\n')
+      .map((line) => line.split(' '))
 
-    expect(fileName).toBe('RehostFixture-1.0.0-full.nupkg')
-    const body = await (await fetch(`${feed}/${fileName}`)).bytes()
-    expect(body.length).toBe(Number(size))
-    expect(new Bun.CryptoHasher('sha1').update(body).digest('hex').toUpperCase()).toBe(sha1!)
+    expect(entries.map(([, fileName]) => fileName)).toEqual([
+      'RehostFixture-0.9.0-full.nupkg',
+      'RehostFixture-1.0.0-full.nupkg',
+    ])
+    for (const [sha1, fileName, size] of entries) {
+      const body = await (await fetch(`${feed}/${fileName}`)).bytes()
+      expect(body.length).toBe(Number(size))
+      expect(new Bun.CryptoHasher('sha1').update(body).digest('hex').toUpperCase()).toBe(sha1!)
+    }
   })
 })
 

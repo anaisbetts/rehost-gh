@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test'
+import { newestPerPackage } from '../src/publish/arch'
 import { groupByArch } from '../src/publish/common'
 import { releasesFile, squirrelFileName } from '../src/publish/squirrel'
 import type { StoredAsset } from '../src/state'
@@ -15,6 +16,19 @@ describe('groupByArch', () => {
   test('uses the fallback architectures when everything is independent', () => {
     const groups = groupByArch([asset(1, 'noarch')], ['x86_64', 'aarch64'])
     expect([...groups.keys()]).toEqual(['x86_64', 'aarch64'])
+  })
+})
+
+describe('newestPerPackage', () => {
+  test('keeps only the most recently published version of each package', () => {
+    const newest = newestPerPackage([
+      { ...asset(1, 'x86_64'), name: 'app', publishedAt: '2026-03-01' },
+      { ...asset(2, 'x86_64'), name: 'app', publishedAt: '2026-01-01' },
+      { ...asset(3, 'x86_64'), name: 'app', publishedAt: '2026-02-01' },
+      { ...asset(4, 'any'), name: 'other', publishedAt: '2026-01-01' },
+    ])
+
+    expect(newest.map((a) => a.assetId)).toEqual([1, 4])
   })
 })
 

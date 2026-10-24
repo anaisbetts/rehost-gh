@@ -8,21 +8,20 @@ const FALLBACK_ARCHES = ['x86_64', 'aarch64']
 
 /**
  * Builds `arch/<arch>/` pacman repos. Every package gets a detached signature (cached next to the download), since
- * pacman's default SigLevel requires one, and the database itself is signed by `repo-add`.
+ * pacman's default SigLevel requires one, and the database itself is signed by `repo-add`. A pacman database holds one
+ * version per package, so only the newest goes in; older files stay alongside for `pacman -U` downgrades.
  */
 export async function publishArch(ctx: PublishContext, assets: StoredAsset[]): Promise<string[]> {
   const groups = groupByArch(assets, FALLBACK_ARCHES)
 
   for (const [arch, packages] of groups) {
     const dir = join(ctx.root, 'arch', arch)
-    const files: string[] = []
 
     for (const asset of packages) {
       const signature = await ensurePackageSignature(ctx, asset)
       const dest = join(dir, asset.fileName)
       await placeAsset(ctx, asset, dest)
       await placeFile(signature, `${dest}.sig`)
-      files.push(dest)
     }
 
     await exec(
@@ -33,13 +32,22 @@ export async function publishArch(ctx: PublishContext, assets: StoredAsset[]): P
         '--key',
         ctx.signer.fingerprint,
         join(dir, `${ctx.repoName}.db.tar.gz`),
-        ...files,
+        ...newestPerPackage(packages).map((a) => join(dir, a.fileName)),
       ],
       { env: ctx.signer.env }
     )
   }
 
   return [...groups.keys()]
+}
+
+export function newestPerPackage(assets: StoredAsset[]): StoredAsset[] {
+  const newest = new Map<string, StoredAsset>()
+  for (const asset of assets) {
+    const current = newest.get(asset.name)
+    if (!current || asset.publishedAt > current.publishedAt) newest.set(asset.name, asset)
+  }
+  return [...newest.values()]
 }
 
 async function ensurePackageSignature(ctx: PublishContext, asset: StoredAsset): Promise<string> {
