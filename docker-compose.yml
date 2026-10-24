@@ -1,0 +1,17 @@
+services:
+  rehost-gh:
+    build: .
+    image: rehost-gh
+    restart: unless-stopped
+    user: "${UID:-1000}:${GID:-1000}"
+    env_file: .env
+    ports:
+      - "${HOST_PORT:-8080}:8080"
+    volumes:
+      - ./data:/data
+    healthcheck:
+      test: ["CMD", "bun", "-e", "const r = await fetch('http://localhost:8080/healthz'); process.exit(r.ok ? 0 : 1)"]
+      interval: 1m
+      timeout: 10s
+      start_period: 30s
+      start_interval: 5s
