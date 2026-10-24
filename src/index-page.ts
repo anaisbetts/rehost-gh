@@ -13,6 +13,8 @@ const STYLE = `
   body { font: 15px/1.5 system-ui, sans-serif; max-width: 60rem; margin: 2rem auto; padding: 0 1rem; color: #222; }
   pre { background: #f4f4f4; padding: 0.75rem 1rem; overflow-x: auto; border-radius: 4px; }
   code { font: 13px ui-monospace, monospace; }
+  a { color: #0969da; text-decoration: none; }
+  a:hover { text-decoration: underline; }
   table { border-collapse: collapse; width: 100%; }
   th, td { text-align: left; padding: 0.3rem 0.6rem; border-bottom: 1px solid #ddd; vertical-align: top; }
   .error { color: #b00020; white-space: pre-wrap; }
@@ -20,6 +22,7 @@ const STYLE = `
   @media (prefers-color-scheme: dark) {
     body { background: #161616; color: #ddd; }
     pre { background: #222; }
+    a { color: #6cb6ff; }
     th, td { border-color: #333; }
     .error { color: #ff6b81; }
   }
