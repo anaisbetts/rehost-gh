@@ -1,0 +1,31 @@
+{
+  "name": "rehost-gh",
+  "version": "0.1.0",
+  "description": "Rehost GitHub release packages as Arch, apt, RPM and Squirrel.Windows repositories",
+  "module": "src/index.ts",
+  "type": "module",
+  "private": true,
+  "author": "Anaïs Betts <anais@anaisbetts.org>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/anaisbetts/rehost-gh.git"
+  },
+  "scripts": {
+    "start": "bun run src/index.ts",
+    "dev": "DEBUG=rehost-gh:* bun run --watch src/index.ts",
+    "check": "biome check && tsc --noEmit",
+    "f": "biome check --write --unsafe",
+    "test": "bun test",
+    "test:integration": "RUN_INTEGRATION_TESTS=1 bun test test/integration"
+  },
+  "dependencies": {
+    "debug": "^4.4.3"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.6.3",
+    "@types/bun": "latest",
+    "@types/debug": "^4.1.13",
+    "typescript": "^7.0.2"
+  }
+}

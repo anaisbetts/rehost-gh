@@ -1,0 +1,20 @@
+# Copy to <data dir>/rehost-gh.toml. Changes are picked up automatically.
+
+# How often every watched repo is polled. Polls are spread out across the interval.
+poll_interval = "30m"
+
+# pacman [section] name, and the apt Origin / Label.
+repo_name = "rehost-gh"
+
+[[watch]]
+repo = "owner/name"
+# Newest versions to keep per package (default 3).
+keep = 3
+# Also pick up GitHub pre-releases (default false). Drafts are always ignored.
+prereleases = false
+# Optional asset-name globs. When include is set, only matching assets are considered.
+# include = ["*.deb", "*.rpm"]
+# exclude = ["*-debug*"]
+
+[[watch]]
+repo = "owner/another"
