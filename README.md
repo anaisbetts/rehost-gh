@@ -23,8 +23,8 @@ docker compose up -d
 The image is `ghcr.io/anaisbetts/rehost-gh` (`linux/amd64`): `latest` tracks published releases, `main` tracks the main
 branch.
 
-Open `http://localhost:8080/` for copy-paste setup instructions for every published repository, plus the sync status
-of each watched repo. `rehost-gh` only speaks plain HTTP; put TLS in front of it (for example `tailscale serve`).
+Open `http://localhost:8080/` for a list of every hosted package with its install command, copy-paste setup
+instructions for every published repository, and the sync status of each watched repo. `rehost-gh` only speaks plain HTTP; put TLS in front of it (for example `tailscale serve`).
 
 Edits to `data/rehost-gh.toml` are picked up automatically. `docker compose kill -s HUP rehost-gh` forces a resync.
 

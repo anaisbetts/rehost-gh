@@ -1,5 +1,13 @@
+import type { PackageFormat } from './package'
 import type { Manifest } from './publish'
-import type { WatchStatus } from './state'
+import type { StoredAsset, WatchStatus } from './state'
+
+const FORMAT_LABELS: Record<PackageFormat, string> = {
+  arch: 'Arch',
+  deb: 'Debian',
+  rpm: 'RPM',
+  squirrel: 'Squirrel',
+}
 
 const STYLE = `
   body { font: 15px/1.5 system-ui, sans-serif; max-width: 60rem; margin: 2rem auto; padding: 0 1rem; color: #222; }
@@ -23,10 +31,26 @@ export interface WatchSummary {
   status: WatchStatus | null
 }
 
-/** Status of every watched repo, plus copy-paste setup for each published repository. */
-export function renderIndexPage(origin: string, manifest: Manifest | null, watches: WatchSummary[]): string {
+interface PackageSummary {
+  name: string
+  format: PackageFormat
+  version: string
+  arches: string[]
+  versionCount: number
+  watch: string
+  tag: string
+}
+
+/** Hosted packages, copy-paste setup for each published repository, and the status of every watched repo. */
+export function renderIndexPage(
+  origin: string,
+  manifest: Manifest | null,
+  watches: WatchSummary[],
+  assets: StoredAsset[]
+): string {
   const sections = manifest
     ? [
+        packagesSection(summarizePackages(assets)),
         keySection(origin, manifest),
         archSection(origin, manifest),
         debSection(origin, manifest),
@@ -51,6 +75,31 @@ ${statusSection(watches)}
 </body>
 </html>
 `
+}
+
+function packagesSection(packages: PackageSummary[]): string {
+  if (packages.length === 0) return ''
+  const rows = packages
+    .map((p) => {
+      const release = `https://github.com/${p.watch}/releases/tag/${encodeURIComponent(p.tag)}`
+      const older = p.versionCount > 1 ? ` <span class="muted">+${p.versionCount - 1} older</span>` : ''
+      const install = installCommand(p)
+      return `<tr>
+<td>${escapeHtml(p.name)}</td>
+<td>${FORMAT_LABELS[p.format]}</td>
+<td>${escapeHtml(p.version)}${older}</td>
+<td>${codeList(p.arches)}</td>
+<td><a href="${escapeHtml(release)}">${escapeHtml(p.watch)}@${escapeHtml(p.tag)}</a></td>
+<td>${install ? `<code>${escapeHtml(install)}</code>` : '<a href="#squirrel">feed URL</a>'}</td>
+</tr>`
+    })
+    .join('\n')
+
+  return `<h2>Packages</h2>
+<p class="muted">Add the repository for your distro below first.</p>
+<table><tr><th>Package</th><th>Format</th><th>Version</th><th>Arch</th><th>From</th><th>Install</th></tr>
+${rows}
+</table>`
 }
 
 function keySection(origin: string, manifest: Manifest): string {
@@ -106,7 +155,7 @@ function squirrelSection(origin: string, manifest: Manifest): string {
         `<tr><td>${escapeHtml(f.id)}</td><td>${escapeHtml(f.arch)}</td><td><code>${escapeHtml(`${origin}/squirrel/${f.id}/${f.arch}`)}</code></td></tr>`
     )
     .join('\n')
-  return `<h2>Squirrel.Windows</h2>
+  return `<h2 id="squirrel">Squirrel.Windows</h2>
 <p>Point <code>UpdateManager</code> at the feed URL.</p>
 <table><tr><th>App</th><th>Arch</th><th>Feed URL</th></tr>
 ${rows}
@@ -130,6 +179,49 @@ function statusSection(watches: WatchSummary[]): string {
 <table><tr><th>Repo</th><th>Packages</th><th>Last sync</th><th>Last success</th></tr>
 ${rows}
 </table>`
+}
+
+/** One row per package, describing its newest version. Expects assets newest first, as `State.assets()` returns them. */
+function summarizePackages(assets: StoredAsset[]): PackageSummary[] {
+  const groups = new Map<string, StoredAsset[]>()
+  for (const asset of assets) {
+    if (asset.delta) continue
+    const key = `${asset.format}\0${asset.name}`
+    groups.set(key, [...(groups.get(key) ?? []), asset])
+  }
+
+  return [...groups.values()]
+    .map((group) => {
+      const newest = group[0] as StoredAsset
+      const arches = group.filter((a) => a.version === newest.version).map((a) => a.arch)
+      return {
+        name: newest.name,
+        format: newest.format,
+        version: newest.version,
+        arches: [...new Set(arches)].sort(),
+        versionCount: new Set(group.map((a) => a.version)).size,
+        watch: newest.watch,
+        tag: newest.tag,
+      }
+    })
+    .sort((a, b) => a.name.localeCompare(b.name) || a.format.localeCompare(b.format))
+}
+
+function installCommand(pkg: PackageSummary): string | null {
+  switch (pkg.format) {
+    case 'arch':
+      return `sudo pacman -S ${pkg.name}`
+    case 'deb':
+      return `sudo apt install ${pkg.name}`
+    case 'rpm':
+      return `sudo dnf install ${pkg.name}`
+    case 'squirrel':
+      return null
+    default: {
+      const unhandled: never = pkg.format
+      throw new Error(`Unknown package format: ${unhandled}`)
+    }
+  }
 }
 
 function pre(text: string): string {

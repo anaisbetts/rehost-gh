@@ -91,7 +91,7 @@ async function indexPage(req: Request, url: URL, options: ServerOptions): Promis
   const proto = req.headers.get('x-forwarded-proto') ?? url.protocol.replace(/:$/, '')
   const host = req.headers.get('x-forwarded-host') ?? req.headers.get('host') ?? url.host
 
-  return new Response(renderIndexPage(`${proto}://${host}`, manifest, watches), {
+  return new Response(renderIndexPage(`${proto}://${host}`, manifest, watches, options.state.assets()), {
     headers: { 'Content-Type': 'text/html; charset=utf-8' },
   })
 }
