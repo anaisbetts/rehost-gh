@@ -12,6 +12,17 @@ const SQUIRREL_ARCH_TOKENS: Record<string, string> = {
   win32: 'x86',
 }
 const DEFAULT_SQUIRREL_ARCH = 'x64'
+const EXE_SKIP_TOKENS = new Set(['setup', 'installer', 'install', 'win', 'windows', 'standalone', 'portable'])
+const EXE_VERSION = /^\d+(?:\.\d+){1,3}$/
+
+type SquirrelIdentity = Pick<PackageInfo, 'name' | 'version' | 'arch'>
+
+interface ParsedExeName {
+  name: string | undefined
+  version: string | undefined
+  arch: string
+  explicitArch: boolean
+}
 
 /** Picks the format from the asset name alone, so unrelated assets are never downloaded. */
 export function formatFromFileName(fileName: string): PackageFormat | null {
@@ -19,12 +30,17 @@ export function formatFromFileName(fileName: string): PackageFormat | null {
   if (/\.pkg\.tar\.(zst|xz|gz)$/.test(name)) return 'arch'
   if (name.endsWith('.deb')) return 'deb'
   if (name.endsWith('.rpm') && !name.endsWith('.src.rpm')) return 'rpm'
-  if (name.endsWith('.nupkg')) return 'squirrel'
+  if (name.endsWith('.nupkg') || name.endsWith('.exe')) return 'squirrel'
   return null
 }
 
 /** Reads name, version and architecture out of a downloaded package. */
-export async function inspectPackage(path: string, fileName: string, format: PackageFormat): Promise<PackageInfo> {
+export async function inspectPackage(
+  path: string,
+  fileName: string,
+  format: PackageFormat,
+  siblings: SquirrelIdentity[] = []
+): Promise<PackageInfo> {
   switch (format) {
     case 'arch':
       return inspectArch(path)
@@ -33,7 +49,7 @@ export async function inspectPackage(path: string, fileName: string, format: Pac
     case 'rpm':
       return inspectRpm(path)
     case 'squirrel':
-      return inspectSquirrel(path, fileName)
+      return isSquirrelExe(fileName) ? inspectSquirrelExe(fileName, siblings) : inspectSquirrel(path, fileName)
     default: {
       const unreachable: never = format
       throw new Error(`Unknown package format ${unreachable}`)
@@ -52,6 +68,28 @@ export function squirrelArchFromFileName(fileName: string): string {
     if (arch) return arch
   }
   return DEFAULT_SQUIRREL_ARCH
+}
+
+export function isSquirrelExe(fileName: string): boolean {
+  return fileName.toLowerCase().endsWith('.exe')
+}
+
+/**
+ * Reads id, version and architecture from an installer file name. Bare names like `Setup.exe` borrow the missing
+ * fields from nupkgs in the same GitHub release, so the EXE lands in the same feed as its packages.
+ */
+export function inspectSquirrelExe(fileName: string, siblings: SquirrelIdentity[] = []): PackageInfo {
+  const parsed = parseExeFileName(fileName)
+  const names = unique(siblings.map((s) => s.name))
+  const versions = unique(siblings.map((s) => s.version))
+  const arches = unique(siblings.map((s) => s.arch))
+
+  const name = (names.length === 1 ? names[0] : undefined) ?? parsed.name
+  const version = (versions.length === 1 ? versions[0] : undefined) ?? parsed.version
+  const arch = parsed.explicitArch ? parsed.arch : arches.length === 1 ? arches[0]! : parsed.arch
+
+  if (!name || !version) throw new Error(`Cannot determine app id and version from ${fileName}`)
+  return { format: 'squirrel', name, version, arch, delta: false }
 }
 
 export function parsePkgInfo(text: string): { name: string; version: string; arch: string } {
@@ -123,4 +161,38 @@ async function inspectSquirrel(path: string, fileName: string): Promise<PackageI
 function requireField(value: string | undefined, field: string, where: string): string {
   if (!value?.trim()) throw new Error(`Missing ${field} in ${where}`)
   return value.trim()
+}
+
+function parseExeFileName(fileName: string): ParsedExeName {
+  const tokens = fileName
+    .replace(/\.exe$/i, '')
+    .split(/[-_\s]+/)
+    .filter(Boolean)
+  let name: string | undefined
+  let version: string | undefined
+  let arch = DEFAULT_SQUIRREL_ARCH
+  let explicitArch = false
+  const nameTokens: string[] = []
+
+  for (const token of tokens) {
+    const lower = token.toLowerCase()
+    if (!version && EXE_VERSION.test(token)) {
+      version = token
+      continue
+    }
+    const mapped = SQUIRREL_ARCH_TOKENS[lower]
+    if (mapped) {
+      arch = mapped
+      explicitArch = true
+      continue
+    }
+    if (!version && !EXE_SKIP_TOKENS.has(lower)) nameTokens.push(token)
+  }
+
+  if (nameTokens.length > 0) name = nameTokens.join('-')
+  return { name, version, arch, explicitArch }
+}
+
+function unique<T>(items: T[]): T[] {
+  return [...new Set(items)]
 }

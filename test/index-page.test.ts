@@ -10,7 +10,7 @@ const MANIFEST: Manifest = {
   arch: ['x86_64'],
   deb: ['amd64'],
   rpm: [],
-  squirrel: [{ id: 'MyApp', arch: 'x64' }],
+  squirrel: [{ id: 'MyApp', arch: 'x64', setup: true }],
 }
 
 test('renders setup snippets for published repos only', () => {
@@ -19,6 +19,7 @@ test('renders setup snippets for published repos only', () => {
   expect(html).toContain('Server = https://pkgs.example/arch/$arch')
   expect(html).toContain('https://pkgs.example/deb stable main')
   expect(html).toContain('https://pkgs.example/squirrel/MyApp/x64')
+  expect(html).toContain('https://pkgs.example/squirrel/MyApp/x64/Setup.exe')
   expect(html).not.toContain('Fedora')
   expect(html).not.toContain('<h2>Packages</h2>')
 })
@@ -42,6 +43,50 @@ test('lists the newest version of each package with its install command', () => 
   expect(html).toContain('https://github.com/a/b/releases/tag/v2.0')
   expect(html).not.toContain('v1.0')
   expect(html).not.toContain('href="#squirrel"')
+})
+
+test('lists EXE installers separately from the Squirrel feed', () => {
+  const html = renderIndexPage(
+    'https://pkgs.example',
+    MANIFEST,
+    [],
+    [
+      asset({
+        assetId: 3,
+        format: 'squirrel',
+        name: 'MyApp',
+        version: '2.0',
+        arch: 'x64',
+        fileName: 'MyApp-2.0-Setup.exe',
+        tag: 'v2.0',
+      }),
+      asset({
+        assetId: 2,
+        format: 'squirrel',
+        name: 'MyApp',
+        version: '2.0',
+        arch: 'x64',
+        fileName: 'MyApp-2.0-full.nupkg',
+        tag: 'v2.0',
+      }),
+      asset({
+        assetId: 1,
+        format: 'squirrel',
+        name: 'MyApp',
+        version: '1.0',
+        arch: 'x64',
+        fileName: 'Setup.exe',
+        tag: 'v1.0',
+      }),
+    ]
+  )
+
+  expect(html).toContain('<td>EXE</td>')
+  expect(html).toContain('<td>Squirrel</td>')
+  expect(html).toContain('href="https://pkgs.example/squirrel/MyApp/x64/Setup.exe">Setup.exe</a>')
+  expect(html).toContain('href="#squirrel">feed URL</a>')
+  expect(html).toContain('+1 older')
+  expect(html).not.toContain('v1.0')
 })
 
 test('escapes sync errors', () => {

@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { newestPerPackage } from '../src/publish/arch'
 import { groupByArch } from '../src/publish/common'
-import { releasesFile, squirrelFileName } from '../src/publish/squirrel'
+import { releasesFile, squirrelExeFileName, squirrelFileName } from '../src/publish/squirrel'
 import type { StoredAsset } from '../src/state'
 
 describe('groupByArch', () => {
@@ -38,6 +38,7 @@ describe('Squirrel feeds', () => {
     expect(squirrelFileName({ ...asset(1, 'arm64'), name: 'MyApp', version: '1.2.3', delta: true })).toBe(
       'MyApp-1.2.3-delta.nupkg'
     )
+    expect(squirrelExeFileName({ ...asset(1, 'arm64'), name: 'MyApp', version: '1.2.3' })).toBe('MyApp-1.2.3-Setup.exe')
   })
 
   test('lists packages oldest first with uppercase SHA1s', () => {

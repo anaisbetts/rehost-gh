@@ -1,5 +1,11 @@
 import { describe, expect, test } from 'bun:test'
-import { formatFromFileName, parseNuspec, parsePkgInfo, squirrelArchFromFileName } from '../src/detect'
+import {
+  formatFromFileName,
+  inspectSquirrelExe,
+  parseNuspec,
+  parsePkgInfo,
+  squirrelArchFromFileName,
+} from '../src/detect'
 
 describe('formatFromFileName', () => {
   test.each([
@@ -9,9 +15,12 @@ describe('formatFromFileName', () => {
     ['app-1.0-1.x86_64.rpm', 'rpm'],
     ['App-1.0.0-full.nupkg', 'squirrel'],
     ['App-1.0.0-DELTA.NUPKG', 'squirrel'],
+    ['Setup.exe', 'squirrel'],
+    ['App-1.0.0-x64.exe', 'squirrel'],
     ['app-1.0-1.src.rpm', null],
     ['app-1.0-1-x86_64.pkg.tar.zst.sig', null],
     ['app.AppImage', null],
+    ['app.exe.blockmap', null],
     ['RELEASES', null],
   ])('%s', (name, format) => {
     expect(formatFromFileName(name)).toBe(format as ReturnType<typeof formatFromFileName>)
@@ -27,6 +36,49 @@ describe('squirrelArchFromFileName', () => {
     ['App-win32-1.0.0-full.nupkg', 'x86'],
   ])('%s', (name, arch) => {
     expect(squirrelArchFromFileName(name)).toBe(arch)
+  })
+})
+
+describe('inspectSquirrelExe', () => {
+  test.each([
+    ['App-1.2.3-x64.exe', { name: 'App', version: '1.2.3', arch: 'x64' }],
+    ['Zeron Setup 1.2.3.exe', { name: 'Zeron', version: '1.2.3', arch: 'x64' }],
+  ])('%s', (name, parsed) => {
+    expect(inspectSquirrelExe(name)).toEqual({ format: 'squirrel', ...parsed, delta: false })
+  })
+
+  test('rejects installers that do not name the app and version', () => {
+    expect(() => inspectSquirrelExe('Setup.exe')).toThrow(/app id and version/)
+    expect(() => inspectSquirrelExe('Zeron-win-arm64-Setup.exe')).toThrow(/app id and version/)
+  })
+
+  test('fills gaps from nupkgs in the same release', () => {
+    expect(inspectSquirrelExe('Setup.exe', [{ name: 'RehostFixture', version: '1.0.0', arch: 'arm64' }])).toEqual({
+      format: 'squirrel',
+      name: 'RehostFixture',
+      version: '1.0.0',
+      arch: 'arm64',
+      delta: false,
+    })
+  })
+
+  test('prefers the nuspec id so the EXE lands in the same feed', () => {
+    expect(inspectSquirrelExe('Zeron-1.2.3.exe', [{ name: 'zeron', version: '1.2.3', arch: 'x64' }])).toEqual({
+      format: 'squirrel',
+      name: 'zeron',
+      version: '1.2.3',
+      arch: 'x64',
+      delta: false,
+    })
+  })
+
+  test('keeps an explicit arch when the release has more than one', () => {
+    const siblings = [
+      { name: 'zeron', version: '1.2.3', arch: 'x64' },
+      { name: 'zeron', version: '1.2.3', arch: 'arm64' },
+    ]
+    expect(inspectSquirrelExe('Setup-arm64.exe', siblings).arch).toBe('arm64')
+    expect(inspectSquirrelExe('Setup.exe', siblings).arch).toBe('x64')
   })
 })
 

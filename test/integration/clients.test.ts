@@ -144,7 +144,7 @@ describe.skipIf(!RUN)('real package manager clients', () => {
     expect(manifest.arch).toEqual(['x86_64', 'aarch64'])
     expect(manifest.deb).toEqual(['amd64', 'arm64'])
     expect(manifest.rpm).toEqual(['x86_64', 'aarch64'])
-    expect(manifest.squirrel).toEqual([{ id: 'RehostFixture', arch: 'arm64' }])
+    expect(manifest.squirrel).toEqual([{ id: 'RehostFixture', arch: 'arm64', setup: true }])
   })
 
   test('generates the signing key from the token owner', async () => {
@@ -192,6 +192,10 @@ describe.skipIf(!RUN)('real package manager clients', () => {
       expect(body.length).toBe(Number(size))
       expect(new Bun.CryptoHasher('sha1').update(body).digest('hex').toUpperCase()).toBe(sha1!)
     }
+
+    expect(await (await fetch(`${feed}/Setup.exe`)).text()).toBe('fake setup 1.0.0\n')
+    expect(await (await fetch(`${feed}/RehostFixture-1.0.0-Setup.exe`)).text()).toBe('fake setup 1.0.0\n')
+    expect(await (await fetch(`${feed}/RehostFixture-0.9.0-Setup.exe`)).text()).toBe('fake setup 0.9.0\n')
   })
 })
 

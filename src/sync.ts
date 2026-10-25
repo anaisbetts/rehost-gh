@@ -2,7 +2,7 @@ import { rm, rmdir } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import debug from 'debug'
 import type { Config, WatchConfig } from './config'
-import { formatFromFileName, inspectPackage } from './detect'
+import { formatFromFileName, inspectPackage, isSquirrelExe } from './detect'
 import type { GitHubClient, Release, ReleaseAsset } from './github'
 import type { State, StoredAsset } from './state'
 
@@ -117,8 +117,11 @@ export async function syncWatch(
   let changed = false
 
   for (const release of releases) {
-    for (const asset of release.assets) {
-      if (!assetMatches(asset.name, watch) || state.isKnownAsset(asset.id)) continue
+    const pending = release.assets
+      .filter((asset) => assetMatches(asset.name, watch) && !state.isKnownAsset(asset.id))
+      .sort((a, b) => Number(isSquirrelExe(a.name)) - Number(isSquirrelExe(b.name)))
+
+    for (const asset of pending) {
       await fetchAsset(watch, release, asset, state, github, downloadsDir)
       changed = true
     }
@@ -184,7 +187,10 @@ async function fetchAsset(
   const download = await github.downloadAsset(watch.owner, watch.name, asset.id, fullPath)
 
   try {
-    const info = await inspectPackage(fullPath, asset.name, format)
+    const siblings = state
+      .assets(watch.repo)
+      .filter((a) => a.tag === release.tag_name && a.format === 'squirrel' && !isSquirrelExe(a.fileName))
+    const info = await inspectPackage(fullPath, asset.name, format, siblings)
     state.addAsset({
       ...info,
       assetId: asset.id,

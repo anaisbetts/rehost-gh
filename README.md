@@ -6,7 +6,7 @@ repositories:
 - Arch Linux (`.pkg.tar.zst` / `.pkg.tar.xz`), one combined pacman repo per architecture
 - Debian / Ubuntu (`.deb`), one combined apt repo
 - Fedora / RHEL (`.rpm`), one combined dnf repo per architecture
-- Squirrel.Windows (`.nupkg`), one feed per app per architecture
+- Squirrel.Windows (`.nupkg` and `.exe`), one feed per app per architecture
 
 Input is a list of repos, output is a set of URLs you add to your package managers. Packages are passed through as-is;
 nothing is converted between formats, and assets in other formats are ignored.
@@ -49,7 +49,7 @@ Back up `gnupg/`: clients trust that key, and losing it means re-trusting a new 
 | pacman           | `Server = https://host/arch/$arch`                     |
 | apt              | `deb [signed-by=...] https://host/deb stable main`     |
 | dnf              | `baseurl=https://host/rpm/$basearch`                   |
-| Squirrel.Windows | `https://host/squirrel/<nuspec id>/<x64, arm64 or x86>` |
+| Squirrel.Windows | `https://host/squirrel/<nuspec id>/<x64, arm64 or x86>` (`Setup.exe` lives there too) |
 | Signing key      | `https://host/key.asc`                                 |
 
 Arch packages are signed individually with the rehost-gh key, so pacman's default `SigLevel` works once the key is

@@ -84,6 +84,7 @@ EOF
 </package>
 EOF
   (cd nupkg && bsdtar --format zip -cf "$out/RehostFixture-$version-arm64-full.nupkg" RehostFixture.nuspec)
+  printf 'fake setup %s\n' "$version" > "$out/Setup.exe"
 }
 
 build_version 0.9.0

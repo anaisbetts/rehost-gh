@@ -1,3 +1,4 @@
+import { isSquirrelExe } from './detect'
 import type { PackageFormat } from './package'
 import type { Manifest } from './publish'
 import type { StoredAsset, WatchStatus } from './state'
@@ -37,6 +38,7 @@ export interface WatchSummary {
 interface PackageSummary {
   name: string
   format: PackageFormat
+  installer: boolean
   version: string
   arches: string[]
   versionCount: number
@@ -53,7 +55,7 @@ export function renderIndexPage(
 ): string {
   const sections = manifest
     ? [
-        packagesSection(summarizePackages(assets)),
+        packagesSection(origin, summarizePackages(assets)),
         keySection(origin, manifest),
         archSection(origin, manifest),
         debSection(origin, manifest),
@@ -80,20 +82,19 @@ ${statusSection(watches)}
 `
 }
 
-function packagesSection(packages: PackageSummary[]): string {
+function packagesSection(origin: string, packages: PackageSummary[]): string {
   if (packages.length === 0) return ''
   const rows = packages
     .map((p) => {
       const release = `https://github.com/${p.watch}/releases/tag/${encodeURIComponent(p.tag)}`
       const older = p.versionCount > 1 ? ` <span class="muted">+${p.versionCount - 1} older</span>` : ''
-      const install = installCommand(p)
       return `<tr>
 <td>${escapeHtml(p.name)}</td>
-<td>${FORMAT_LABELS[p.format]}</td>
+<td>${escapeHtml(formatLabel(p))}</td>
 <td>${escapeHtml(p.version)}${older}</td>
 <td>${codeList(p.arches)}</td>
 <td><a href="${escapeHtml(release)}">${escapeHtml(p.watch)}@${escapeHtml(p.tag)}</a></td>
-<td>${install ? `<code>${escapeHtml(install)}</code>` : '<a href="#squirrel">feed URL</a>'}</td>
+<td>${installCell(origin, p)}</td>
 </tr>`
     })
     .join('\n')
@@ -153,14 +154,17 @@ EOF`)}`
 function squirrelSection(origin: string, manifest: Manifest): string {
   if (manifest.squirrel.length === 0) return ''
   const rows = manifest.squirrel
-    .map(
-      (f) =>
-        `<tr><td>${escapeHtml(f.id)}</td><td>${escapeHtml(f.arch)}</td><td><code>${escapeHtml(`${origin}/squirrel/${f.id}/${f.arch}`)}</code></td></tr>`
-    )
+    .map((f) => {
+      const feed = `${origin}/squirrel/${f.id}/${f.arch}`
+      const setup = f.setup
+        ? `<a href="${escapeHtml(`${feed}/Setup.exe`)}"><code>${escapeHtml(`${feed}/Setup.exe`)}</code></a>`
+        : ''
+      return `<tr><td>${escapeHtml(f.id)}</td><td>${escapeHtml(f.arch)}</td><td><code>${escapeHtml(feed)}</code></td><td>${setup}</td></tr>`
+    })
     .join('\n')
   return `<h2 id="squirrel">Squirrel.Windows</h2>
-<p>Point <code>UpdateManager</code> at the feed URL.</p>
-<table><tr><th>App</th><th>Arch</th><th>Feed URL</th></tr>
+<p>Point <code>UpdateManager</code> at the feed URL. First-time installs download <code>Setup.exe</code> from the same directory.</p>
+<table><tr><th>App</th><th>Arch</th><th>Feed URL</th><th>Installer</th></tr>
 ${rows}
 </table>`
 }
@@ -189,7 +193,7 @@ function summarizePackages(assets: StoredAsset[]): PackageSummary[] {
   const groups = new Map<string, StoredAsset[]>()
   for (const asset of assets) {
     if (asset.delta) continue
-    const key = `${asset.format}\0${asset.name}`
+    const key = `${asset.format}\0${asset.name}\0${isSquirrelExe(asset.fileName) ? 'exe' : 'pkg'}`
     groups.set(key, [...(groups.get(key) ?? []), asset])
   }
 
@@ -200,6 +204,7 @@ function summarizePackages(assets: StoredAsset[]): PackageSummary[] {
       return {
         name: newest.name,
         format: newest.format,
+        installer: isSquirrelExe(newest.fileName),
         version: newest.version,
         arches: [...new Set(arches)].sort(),
         versionCount: new Set(group.map((a) => a.version)).size,
@@ -207,7 +212,30 @@ function summarizePackages(assets: StoredAsset[]): PackageSummary[] {
         tag: newest.tag,
       }
     })
-    .sort((a, b) => a.name.localeCompare(b.name) || a.format.localeCompare(b.format))
+    .sort(
+      (a, b) =>
+        a.name.localeCompare(b.name) || a.format.localeCompare(b.format) || Number(a.installer) - Number(b.installer)
+    )
+}
+
+function formatLabel(pkg: PackageSummary): string {
+  if (pkg.installer) return 'EXE'
+  return FORMAT_LABELS[pkg.format]
+}
+
+function installCell(origin: string, pkg: PackageSummary): string {
+  if (pkg.installer) {
+    return pkg.arches
+      .map((arch) => {
+        const href = `${origin}/squirrel/${pkg.name}/${arch}/Setup.exe`
+        const label = pkg.arches.length > 1 ? `${arch} Setup.exe` : 'Setup.exe'
+        return `<a href="${escapeHtml(href)}">${escapeHtml(label)}</a>`
+      })
+      .join(', ')
+  }
+
+  const install = installCommand(pkg)
+  return install ? `<code>${escapeHtml(install)}</code>` : '<a href="#squirrel">feed URL</a>'
 }
 
 function installCommand(pkg: PackageSummary): string | null {
