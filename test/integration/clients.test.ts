@@ -145,6 +145,9 @@ describe.skipIf(!RUN)('real package manager clients', () => {
     expect(manifest.deb).toEqual(['amd64', 'arm64'])
     expect(manifest.rpm).toEqual(['x86_64', 'aarch64'])
     expect(manifest.squirrel).toEqual([{ id: 'RehostFixture', arch: 'arm64', setup: true }])
+    expect(manifest.android).toEqual([
+      { id: 'dev.anais.rehostfixture', versionName: '1.0.0', versionCode: 10, arch: 'arm64-v8a' },
+    ])
   })
 
   test('generates the signing key from the token owner', async () => {
@@ -196,6 +199,29 @@ describe.skipIf(!RUN)('real package manager clients', () => {
     expect(await (await fetch(`${feed}/Setup.exe`)).text()).toBe('fake setup 1.0.0\n')
     expect(await (await fetch(`${feed}/RehostFixture-1.0.0-Setup.exe`)).text()).toBe('fake setup 1.0.0\n')
     expect(await (await fetch(`${feed}/RehostFixture-0.9.0-Setup.exe`)).text()).toBe('fake setup 0.9.0\n')
+  })
+
+  test('serves mbfai Android update metadata for the newest APK', async () => {
+    const feed = `${baseUrl}/android/dev.anais.rehostfixture`
+    const metadata = (await (await fetch(`${feed}/android-update.json`)).json()) as {
+      platform: string
+      versionName: string
+      versionCode: number
+      apkUrl: string
+      sha256checksum: string
+    }
+
+    expect(metadata).toMatchObject({
+      platform: 'android',
+      versionName: '1.0.0',
+      versionCode: 10,
+      apkUrl: 'releases/dev.anais.rehostfixture-1.0.0+10-arm64-v8a.apk',
+    })
+    expect(metadata.sha256checksum).toMatch(/^[a-f0-9]{64}$/)
+
+    const apk = await (await fetch(`${feed}/${metadata.apkUrl}`)).bytes()
+    expect(new Bun.CryptoHasher('sha256').update(apk).digest('hex')).toBe(metadata.sha256checksum)
+    expect((await fetch(`${feed}/releases/dev.anais.rehostfixture-0.9.0+9-arm64-v8a.apk`)).ok).toBe(true)
   })
 })
 

@@ -1,11 +1,23 @@
 import { describe, expect, test } from 'bun:test'
+import { mkdtemp, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import {
+  androidArchFromListing,
+  androidFileName,
+  encodeAndroidManifest,
+  parseAndroidManifest,
+  parseAndroidVersion,
+} from '../src/android-manifest'
 import {
   formatFromFileName,
+  inspectPackage,
   inspectSquirrelExe,
   parseNuspec,
   parsePkgInfo,
   squirrelArchFromFileName,
 } from '../src/detect'
+import { writeMinimalApk } from './apk'
 
 describe('formatFromFileName', () => {
   test.each([
@@ -21,6 +33,9 @@ describe('formatFromFileName', () => {
     ['App-1.0.0-x64.exe', null],
     ['app-1.0-1.src.rpm', null],
     ['app-1.0-1-x86_64.pkg.tar.zst.sig', null],
+    ['app-release.apk', 'android'],
+    ['App.APK', 'android'],
+    ['app.apk.idsig', null],
     ['app.AppImage', null],
     ['app.exe.blockmap', null],
     ['RELEASES', null],
@@ -99,6 +114,44 @@ depend = zlib
 
   test('requires the core fields', () => {
     expect(() => parsePkgInfo('pkgname = app\n')).toThrow(/pkgver/)
+  })
+})
+
+describe('Android manifests', () => {
+  test('round-trips package, versionName and versionCode', () => {
+    const info = { package: 'dev.anais.red', versionName: '1.12.34', versionCode: 3106 }
+    expect(parseAndroidManifest(encodeAndroidManifest(info))).toEqual(info)
+  })
+
+  test('reads architecture from native library paths', () => {
+    expect(androidArchFromListing('AndroidManifest.xml\n')).toBe('any')
+    expect(androidArchFromListing('./lib/arm64-v8a/libapp.so\n')).toBe('arm64-v8a')
+    expect(androidArchFromListing('lib/arm64-v8a/libapp.so\nlib/x86_64/libapp.so\n')).toBe('universal')
+  })
+
+  test('encodes version as versionName+versionCode', () => {
+    expect(parseAndroidVersion('1.12.34+3106')).toEqual({ versionName: '1.12.34', versionCode: 3106 })
+    expect(androidFileName('dev.anais.red', '1.12.34+3106', 'arm64-v8a')).toBe(
+      'dev.anais.red-1.12.34+3106-arm64-v8a.apk'
+    )
+    expect(() => parseAndroidVersion('1.12.34')).toThrow(/versionName\+versionCode/)
+  })
+
+  test('inspects a zip APK', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'rehost-apk-inspect-'))
+    const path = join(dir, 'app.apk')
+    try {
+      await writeMinimalApk(path, { package: 'dev.anais.red', versionName: '1.2.3', versionCode: 45 }, ['arm64-v8a'])
+      await expect(inspectPackage(path, 'app.apk', 'android')).resolves.toEqual({
+        format: 'android',
+        name: 'dev.anais.red',
+        version: '1.2.3+45',
+        arch: 'arm64-v8a',
+        delta: false,
+      })
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
   })
 })
 

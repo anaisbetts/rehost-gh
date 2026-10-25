@@ -5,6 +5,7 @@ import type { Config } from '../config'
 import type { PackageFormat } from '../package'
 import type { Signer } from '../signing'
 import type { State, StoredAsset } from '../state'
+import { type AndroidFeed, publishAndroid } from './android'
 import { publishArch } from './arch'
 import type { PublishContext } from './common'
 import { publishDeb } from './deb'
@@ -27,6 +28,7 @@ export interface Manifest {
   deb: string[]
   rpm: string[]
   squirrel: SquirrelFeed[]
+  android: AndroidFeed[]
 }
 
 /**
@@ -53,6 +55,7 @@ export async function publish(dataDir: string, config: Config, state: State, sig
       deb: byFormat.deb.length > 0 ? await publishDeb(ctx, byFormat.deb) : [],
       rpm: byFormat.rpm.length > 0 ? await publishRpm(ctx, byFormat.rpm) : [],
       squirrel: byFormat.squirrel.length > 0 ? await publishSquirrel(ctx, byFormat.squirrel) : [],
+      android: byFormat.android.length > 0 ? await publishAndroid(ctx, byFormat.android) : [],
     }
 
     await Bun.write(join(ctx.root, KEY_FILE), await signer.exportPublicKey())
@@ -68,7 +71,7 @@ export async function publish(dataDir: string, config: Config, state: State, sig
 }
 
 function groupByFormat(assets: StoredAsset[]): Record<PackageFormat, StoredAsset[]> {
-  const groups: Record<PackageFormat, StoredAsset[]> = { arch: [], deb: [], rpm: [], squirrel: [] }
+  const groups: Record<PackageFormat, StoredAsset[]> = { arch: [], deb: [], rpm: [], squirrel: [], android: [] }
   for (const asset of assets) groups[asset.format].push(asset)
   return groups
 }

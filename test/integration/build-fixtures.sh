@@ -85,6 +85,15 @@ EOF
 EOF
   (cd nupkg && bsdtar --format zip -cf "$out/RehostFixture-$version-arm64-full.nupkg" RehostFixture.nuspec)
   printf 'fake setup %s\n' "$version" > "$out/Setup.exe"
+
+  local version_code
+  if [ "$version" = 0.9.0 ]; then version_code=9; else version_code=10; fi
+  bun /src/test/integration/build-apk.ts \
+    "$out/rehost-fixture-${version}.apk" \
+    "$version" \
+    "$version_code" \
+    "dev.anais.rehostfixture" \
+    arm64-v8a
 }
 
 build_version 0.9.0

@@ -1,3 +1,4 @@
+import { androidFileName } from './android-manifest'
 import { isSquirrelExe } from './detect'
 import type { PackageFormat } from './package'
 import type { Manifest } from './publish'
@@ -8,6 +9,7 @@ const FORMAT_LABELS: Record<PackageFormat, string> = {
   deb: 'Debian',
   rpm: 'RPM',
   squirrel: 'Squirrel',
+  android: 'Android',
 }
 
 const STYLE = `
@@ -61,6 +63,7 @@ export function renderIndexPage(
         debSection(origin, manifest),
         rpmSection(origin, manifest),
         squirrelSection(origin, manifest),
+        androidSection(origin, manifest),
       ]
     : ['<p>Nothing has been published yet, the first sync is probably still running.</p>']
 
@@ -169,6 +172,30 @@ ${rows}
 </table>`
 }
 
+function androidSection(origin: string, manifest: Manifest): string {
+  if (manifest.android.length === 0) return ''
+  const rows = manifest.android
+    .map((f) => {
+      const feed = `${origin}/android/${f.id}`
+      const metadata = `${feed}/android-update.json`
+      const apk = `${feed}/releases/${androidFileName(f.id, `${f.versionName}+${f.versionCode}`, f.arch)}`
+      return `<tr>
+<td>${escapeHtml(f.id)}</td>
+<td>${escapeHtml(f.versionName)}+${f.versionCode}</td>
+<td>${escapeHtml(f.arch)}</td>
+<td><code>${escapeHtml(metadata)}</code></td>
+<td><a href="${escapeHtml(apk)}"><code>${escapeHtml(apk)}</code></a></td>
+</tr>`
+    })
+    .join('\n')
+  return `<h2 id="android">Android</h2>
+<p>Point the app's <code>androidUpdateMetadataUrl</code> at the metadata URL. The client offers an install when
+<code>versionCode</code> is greater than the installed build number.</p>
+<table><tr><th>Package</th><th>Version</th><th>Arch</th><th>Metadata URL</th><th>APK</th></tr>
+${rows}
+</table>`
+}
+
 function statusSection(watches: WatchSummary[]): string {
   const rows = watches
     .map((w) => {
@@ -233,6 +260,15 @@ function installCell(origin: string, pkg: PackageSummary): string {
       })
       .join(', ')
   }
+  if (pkg.format === 'android') {
+    return pkg.arches
+      .map((arch) => {
+        const href = `${origin}/android/${pkg.name}/releases/${androidFileName(pkg.name, pkg.version, arch)}`
+        const label = pkg.arches.length > 1 ? `${arch} APK` : 'APK'
+        return `<a href="${escapeHtml(href)}">${escapeHtml(label)}</a>`
+      })
+      .join(', ')
+  }
 
   const install = installCommand(pkg)
   return install ? `<code>${escapeHtml(install)}</code>` : '<a href="#squirrel">feed URL</a>'
@@ -247,6 +283,8 @@ function installCommand(pkg: PackageSummary): string | null {
     case 'rpm':
       return `sudo dnf install ${pkg.name}`
     case 'squirrel':
+      return null
+    case 'android':
       return null
     default: {
       const unhandled: never = pkg.format

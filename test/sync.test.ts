@@ -17,6 +17,7 @@ const WATCH: WatchConfig = {
 describe('assetMatches', () => {
   test('only accepts package formats', () => {
     expect(assetMatches('app_1.0_amd64.deb', WATCH)).toBe(true)
+    expect(assetMatches('app-release.apk', WATCH)).toBe(true)
     expect(assetMatches('Setup.exe', WATCH)).toBe(true)
     expect(assetMatches('App-1.0-Install.exe', WATCH)).toBe(true)
     expect(assetMatches('App-1.0-x64.exe', WATCH)).toBe(false)

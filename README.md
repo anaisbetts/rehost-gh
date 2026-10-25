@@ -7,6 +7,7 @@ repositories:
 - Debian / Ubuntu (`.deb`), one combined apt repo
 - Fedora / RHEL (`.rpm`), one combined dnf repo per architecture
 - Squirrel.Windows (`.nupkg` and installer `.exe` names containing Setup or Install), one feed per app per architecture
+- Android (`.apk`), one mbfai-style update feed per application id
 
 Input is a list of repos, output is a set of URLs you add to your package managers. Packages are passed through as-is;
 nothing is converted between formats, and assets in other formats are ignored.
@@ -50,10 +51,12 @@ Back up `gnupg/`: clients trust that key, and losing it means re-trusting a new 
 | apt              | `deb [signed-by=...] https://host/deb stable main`     |
 | dnf              | `baseurl=https://host/rpm/$basearch`                   |
 | Squirrel.Windows | `https://host/squirrel/<nuspec id>/<x64, arm64 or x86>` (`Setup.exe` lives there too) |
+| Android          | `https://host/android/<application id>/android-update.json` (APKs live under `releases/`) |
 | Signing key      | `https://host/key.asc`                                 |
 
 Arch packages are signed individually with the rehost-gh key, so pacman's default `SigLevel` works once the key is
-trusted. RPMs keep upstream's signatures, so the dnf config uses `repo_gpgcheck=1` with `gpgcheck=0`.
+trusted. RPMs keep upstream's signatures, so the dnf config uses `repo_gpgcheck=1` with `gpgcheck=0`. Android
+`android-update.json` names the newest APK by `versionCode`; point the app's `androidUpdateMetadataUrl` at that file.
 
 ## Development
 

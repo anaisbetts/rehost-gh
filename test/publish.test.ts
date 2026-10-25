@@ -1,8 +1,14 @@
 import { describe, expect, test } from 'bun:test'
+import { mkdir, mkdtemp, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { androidUpdateMetadata, newestAndroidAsset, publishAndroid } from '../src/publish/android'
 import { newestPerPackage } from '../src/publish/arch'
 import { groupByArch } from '../src/publish/common'
 import { releasesFile, squirrelExeFileName, squirrelFileName } from '../src/publish/squirrel'
+import type { Signer } from '../src/signing'
 import type { StoredAsset } from '../src/state'
+import { writeMinimalApk } from './apk'
 
 describe('groupByArch', () => {
   test('adds architecture-independent packages to every architecture', () => {
@@ -29,6 +35,77 @@ describe('newestPerPackage', () => {
     ])
 
     expect(newest.map((a) => a.assetId)).toEqual([1, 4])
+  })
+})
+
+describe('Android feeds', () => {
+  test('writes mbfai android-update metadata for the newest APK', () => {
+    const latest = {
+      ...asset(3, 'arm64-v8a'),
+      format: 'android' as const,
+      name: 'dev.anais.red',
+      version: '1.12.34+3106',
+      sha256: 'a'.repeat(64),
+      publishedAt: '2026-05-13T20:35:00.000Z',
+    }
+
+    expect(androidUpdateMetadata(latest)).toEqual({
+      platform: 'android',
+      versionName: '1.12.34',
+      versionCode: 3106,
+      apkUrl: 'releases/dev.anais.red-1.12.34+3106-arm64-v8a.apk',
+      sha256checksum: 'a'.repeat(64),
+      publishedAt: '2026-05-13T20:35:00.000Z',
+    })
+  })
+
+  test('picks the highest versionCode, preferring arm64', () => {
+    const assets = [
+      { ...asset(1, 'x86_64'), format: 'android' as const, version: '1.0.0+10' },
+      { ...asset(2, 'arm64-v8a'), format: 'android' as const, version: '1.0.0+10' },
+      { ...asset(3, 'arm64-v8a'), format: 'android' as const, version: '0.9.0+9', publishedAt: '2026-06-01' },
+    ]
+
+    expect(newestAndroidAsset(assets).assetId).toBe(2)
+  })
+
+  test('publishes APKs and android-update.json', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'rehost-android-'))
+    try {
+      const downloadsDir = join(dir, 'downloads')
+      await mkdir(downloadsDir)
+      const path = 'app.apk'
+      await writeMinimalApk(join(downloadsDir, path), {
+        package: 'dev.anais.red',
+        versionName: '1.0.0',
+        versionCode: 10,
+      })
+      const bytes = await Bun.file(join(downloadsDir, path)).bytes()
+      const sha256 = new Bun.CryptoHasher('sha256').update(bytes).digest('hex')
+      const published = {
+        ...asset(1, 'arm64-v8a'),
+        format: 'android' as const,
+        name: 'dev.anais.red',
+        version: '1.0.0+10',
+        fileName: 'app.apk',
+        path,
+        size: bytes.byteLength,
+        sha256,
+        publishedAt: '2026-05-13T20:35:00.000Z',
+      }
+
+      const feeds = await publishAndroid(
+        { root: join(dir, 'www'), downloadsDir, signer: {} as Signer, repoName: 'rehost-gh' },
+        [published]
+      )
+      const metadata = await Bun.file(join(dir, 'www/android/dev.anais.red/android-update.json')).json()
+
+      expect(feeds).toEqual([{ id: 'dev.anais.red', versionName: '1.0.0', versionCode: 10, arch: 'arm64-v8a' }])
+      expect(metadata).toEqual(androidUpdateMetadata(published))
+      expect(await Bun.file(join(dir, 'www/android/dev.anais.red', metadata.apkUrl)).exists()).toBe(true)
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
   })
 })
 

@@ -1,4 +1,4 @@
-export type PackageFormat = 'arch' | 'deb' | 'rpm' | 'squirrel'
+export type PackageFormat = 'arch' | 'deb' | 'rpm' | 'squirrel' | 'android'
 
 /** Metadata read out of a downloaded package file. */
 export interface PackageInfo {
@@ -6,8 +6,8 @@ export interface PackageInfo {
   name: string
   version: string
   /**
-   * Architecture in the package manager's own vocabulary (`x86_64`, `amd64`, `aarch64`, ...). Packages that work
-   * everywhere keep their native marker: `any` (Arch), `all` (deb), `noarch` (RPM).
+   * Architecture in the package manager's own vocabulary (`x86_64`, `amd64`, `arm64-v8a`, ...). Packages that work
+   * everywhere keep their native marker: `any` (Arch / Android), `all` (deb), `noarch` (RPM).
    */
   arch: string
   /** Squirrel only: whether this is a delta package rather than a full one. */

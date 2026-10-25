@@ -1,4 +1,5 @@
-import { exec } from './exec'
+import { androidArchFromListing, formatAndroidVersion, parseAndroidManifest } from './android-manifest'
+import { exec, execBuffer } from './exec'
 import type { PackageFormat, PackageInfo } from './package'
 
 const SQUIRREL_ARCH_TOKENS: Record<string, string> = {
@@ -31,6 +32,7 @@ export function formatFromFileName(fileName: string): PackageFormat | null {
   if (name.endsWith('.deb')) return 'deb'
   if (name.endsWith('.rpm') && !name.endsWith('.src.rpm')) return 'rpm'
   if (name.endsWith('.nupkg') || isSquirrelExe(fileName)) return 'squirrel'
+  if (name.endsWith('.apk')) return 'android'
   return null
 }
 
@@ -50,6 +52,8 @@ export async function inspectPackage(
       return inspectRpm(path)
     case 'squirrel':
       return isSquirrelExe(fileName) ? inspectSquirrelExe(fileName, siblings) : inspectSquirrel(path, fileName)
+    case 'android':
+      return inspectAndroid(path)
     default: {
       const unreachable: never = format
       throw new Error(`Unknown package format ${unreachable}`)
@@ -156,6 +160,17 @@ async function inspectSquirrel(path: string, fileName: string): Promise<PackageI
     version,
     arch: squirrelArchFromFileName(fileName),
     delta: /-delta\.nupkg$/i.test(fileName),
+  }
+}
+
+async function inspectAndroid(path: string): Promise<PackageInfo> {
+  const info = parseAndroidManifest(await execBuffer(['bsdtar', '-xOf', path, 'AndroidManifest.xml']))
+  return {
+    format: 'android',
+    name: info.package,
+    version: formatAndroidVersion(info.versionName, info.versionCode),
+    arch: androidArchFromListing(await exec(['bsdtar', '-tf', path])),
+    delta: false,
   }
 }
 

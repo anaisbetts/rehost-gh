@@ -11,6 +11,7 @@ const MANIFEST: Manifest = {
   deb: ['amd64'],
   rpm: [],
   squirrel: [{ id: 'MyApp', arch: 'x64', setup: true }],
+  android: [{ id: 'dev.anais.red', versionName: '1.12.34', versionCode: 3106, arch: 'arm64-v8a' }],
 }
 
 test('renders setup snippets for published repos only', () => {
@@ -20,6 +21,8 @@ test('renders setup snippets for published repos only', () => {
   expect(html).toContain('https://pkgs.example/deb stable main')
   expect(html).toContain('https://pkgs.example/squirrel/MyApp/x64')
   expect(html).toContain('https://pkgs.example/squirrel/MyApp/x64/Setup.exe')
+  expect(html).toContain('https://pkgs.example/android/dev.anais.red/android-update.json')
+  expect(html).toContain('https://pkgs.example/android/dev.anais.red/releases/dev.anais.red-1.12.34+3106-arm64-v8a.apk')
   expect(html).not.toContain('Fedora')
   expect(html).not.toContain('<h2>Packages</h2>')
 })
@@ -43,6 +46,28 @@ test('lists the newest version of each package with its install command', () => 
   expect(html).toContain('https://github.com/a/b/releases/tag/v2.0')
   expect(html).not.toContain('v1.0')
   expect(html).not.toContain('href="#squirrel"')
+})
+
+test('links Android packages to the hosted APK', () => {
+  const html = renderIndexPage(
+    'https://pkgs.example',
+    MANIFEST,
+    [],
+    [
+      asset({
+        format: 'android',
+        name: 'dev.anais.red',
+        version: '1.12.34+3106',
+        arch: 'arm64-v8a',
+        tag: 'v1.12.34',
+      }),
+    ]
+  )
+
+  expect(html).toContain('<td>Android</td>')
+  expect(html).toContain(
+    'href="https://pkgs.example/android/dev.anais.red/releases/dev.anais.red-1.12.34+3106-arm64-v8a.apk">APK</a>'
+  )
 })
 
 test('lists EXE installers separately from the Squirrel feed', () => {

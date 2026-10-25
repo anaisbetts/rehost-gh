@@ -1,7 +1,7 @@
 {
   "name": "rehost-gh",
   "version": "0.1.0",
-  "description": "Rehost GitHub release packages as Arch, apt, RPM and Squirrel.Windows repositories",
+  "description": "Rehost GitHub release packages as Arch, apt, RPM, Squirrel.Windows and Android repositories",
   "module": "src/index.ts",
   "type": "module",
   "private": true,
