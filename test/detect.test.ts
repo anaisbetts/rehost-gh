@@ -16,7 +16,9 @@ describe('formatFromFileName', () => {
     ['App-1.0.0-full.nupkg', 'squirrel'],
     ['App-1.0.0-DELTA.NUPKG', 'squirrel'],
     ['Setup.exe', 'squirrel'],
-    ['App-1.0.0-x64.exe', 'squirrel'],
+    ['App-1.0.0-Setup.exe', 'squirrel'],
+    ['App-1.0.0-Install.exe', 'squirrel'],
+    ['App-1.0.0-x64.exe', null],
     ['app-1.0-1.src.rpm', null],
     ['app-1.0-1-x86_64.pkg.tar.zst.sig', null],
     ['app.AppImage', null],
@@ -41,7 +43,7 @@ describe('squirrelArchFromFileName', () => {
 
 describe('inspectSquirrelExe', () => {
   test.each([
-    ['App-1.2.3-x64.exe', { name: 'App', version: '1.2.3', arch: 'x64' }],
+    ['App-1.2.3-x64-Setup.exe', { name: 'App', version: '1.2.3', arch: 'x64' }],
     ['Zeron Setup 1.2.3.exe', { name: 'Zeron', version: '1.2.3', arch: 'x64' }],
   ])('%s', (name, parsed) => {
     expect(inspectSquirrelExe(name)).toEqual({ format: 'squirrel', ...parsed, delta: false })
@@ -63,7 +65,7 @@ describe('inspectSquirrelExe', () => {
   })
 
   test('prefers the nuspec id so the EXE lands in the same feed', () => {
-    expect(inspectSquirrelExe('Zeron-1.2.3.exe', [{ name: 'zeron', version: '1.2.3', arch: 'x64' }])).toEqual({
+    expect(inspectSquirrelExe('Zeron-1.2.3-Setup.exe', [{ name: 'zeron', version: '1.2.3', arch: 'x64' }])).toEqual({
       format: 'squirrel',
       name: 'zeron',
       version: '1.2.3',

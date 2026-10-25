@@ -30,7 +30,7 @@ export function formatFromFileName(fileName: string): PackageFormat | null {
   if (/\.pkg\.tar\.(zst|xz|gz)$/.test(name)) return 'arch'
   if (name.endsWith('.deb')) return 'deb'
   if (name.endsWith('.rpm') && !name.endsWith('.src.rpm')) return 'rpm'
-  if (name.endsWith('.nupkg') || name.endsWith('.exe')) return 'squirrel'
+  if (name.endsWith('.nupkg') || isSquirrelExe(fileName)) return 'squirrel'
   return null
 }
 
@@ -71,7 +71,8 @@ export function squirrelArchFromFileName(fileName: string): string {
 }
 
 export function isSquirrelExe(fileName: string): boolean {
-  return fileName.toLowerCase().endsWith('.exe')
+  const name = fileName.toLowerCase()
+  return name.endsWith('.exe') && (name.includes('setup') || name.includes('install'))
 }
 
 /**
