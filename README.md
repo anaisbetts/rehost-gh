@@ -1,5 +1,7 @@
 # rehost-gh
 
+<img width="2067" height="1372" alt="image" src="https://github.com/user-attachments/assets/1fdb8cea-ddc4-47e4-bc80-3eff8ce2eda3" />
+
 Watches a list of GitHub repos, downloads the packages attached to their releases, and rehosts them as signed
 repositories:
 
