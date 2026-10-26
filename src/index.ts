@@ -28,7 +28,7 @@ async function main() {
   const syncer = new Syncer(state, github, join(dataDir, 'downloads'), async (c) => {
     await publish(dataDir, c, state, signer)
   })
-  const server = startServer({ port, dataDir, state, config: () => config })
+  const server = startServer({ port, dataDir, state, config: () => config, refresh: () => syncer.syncAll() })
 
   const configWatcher = watchConfig(configPath, (next) => {
     console.log('Config changed, resyncing')

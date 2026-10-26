@@ -22,14 +22,33 @@ const STYLE = `
   th, td { text-align: left; padding: 0.3rem 0.6rem; border-bottom: 1px solid #ddd; vertical-align: top; }
   .error { color: #b00020; white-space: pre-wrap; }
   .muted { color: #777; }
+  button { font: inherit; padding: 0.3rem 0.9rem; border: 1px solid #bbb; border-radius: 4px; background: #f4f4f4; color: inherit; cursor: pointer; }
+  button:hover:not(:disabled) { background: #e8e8e8; }
+  button:disabled { opacity: 0.55; cursor: default; }
+  #refresh-form { display: flex; align-items: baseline; gap: 0.6rem; flex-wrap: wrap; }
   @media (prefers-color-scheme: dark) {
     body { background: #161616; color: #ddd; }
     pre { background: #222; }
     a { color: #6cb6ff; }
     th, td { border-color: #333; }
     .error { color: #ff6b81; }
+    button { background: #222; border-color: #444; }
+    button:hover:not(:disabled) { background: #2d2d2d; }
   }
 `
+
+/** Progressive enhancement: the plain form post works without it, this only keeps the button honest while it runs. */
+const REFRESH_SCRIPT = `<script>
+document.getElementById('refresh-form')?.addEventListener('submit', (event) => {
+  event.preventDefault();
+  const button = document.getElementById('refresh-button');
+  const note = document.getElementById('refresh-note');
+  if (button) button.disabled = true;
+  if (note) note.textContent = 'Polling GitHub...';
+  const reload = () => window.location.reload();
+  fetch('/refresh', { method: 'POST' }).then(reload, reload);
+});
+</script>`
 
 export interface WatchSummary {
   repo: string
@@ -80,6 +99,7 @@ export function renderIndexPage(
 ${manifest ? `<p class="muted">Last published ${escapeHtml(manifest.publishedAt)}</p>` : ''}
 ${sections.join('\n')}
 ${statusSection(watches)}
+${REFRESH_SCRIPT}
 </body>
 </html>
 `
@@ -210,6 +230,10 @@ function statusSection(watches: WatchSummary[]): string {
     .join('\n')
 
   return `<h2>Watched repos</h2>
+<form method="post" action="/refresh" id="refresh-form">
+<button type="submit" id="refresh-button">Refresh now</button>
+<span class="muted" id="refresh-note">Re-polls every watched repo on GitHub right now, then reloads this page.</span>
+</form>
 <table><tr><th>Repo</th><th>Packages</th><th>Last sync</th><th>Last success</th></tr>
 ${rows}
 </table>`

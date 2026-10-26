@@ -130,7 +130,15 @@ test('escapes sync errors', () => {
 
   expect(html).toContain('Nothing has been published yet')
   expect(html).toContain('&lt;script&gt;')
-  expect(html).not.toContain('<script>')
+  expect(html).not.toContain('<script>alert(1)</script>')
+})
+
+test('offers a refresh button that re-polls every watched repo', () => {
+  const html = renderIndexPage('https://pkgs.example', MANIFEST, [{ repo: 'a/b', packages: 0, status: null }], [])
+
+  expect(html).toContain('<form method="post" action="/refresh"')
+  expect(html).toContain('Refresh now')
+  expect(html).toContain('Polling GitHub')
 })
 
 function asset(overrides: Partial<StoredAsset>): StoredAsset {

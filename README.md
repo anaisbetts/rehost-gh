@@ -12,7 +12,7 @@ repositories:
 - Debian / Ubuntu (`.deb`), one combined apt repo
 - Fedora / RHEL (`.rpm`), one combined dnf repo per architecture
 - Squirrel.Windows (`.nupkg` and installer `.exe` names containing Setup or Install), one feed per app per architecture
-- Android (`.apk`), one mbfai-style update feed per application id
+- Android (`.apk`), one update feed per application id. See [docs/android-updater.md](docs/android-updater.md) for the JSON format and a Flutter client.
 
 Input is a list of repos, output is a set of URLs you add to your package managers. Packages are passed through as-is;
 nothing is converted between formats, and assets in other formats are ignored.
@@ -32,7 +32,8 @@ branch.
 Open `http://localhost:8080/` for a list of every hosted package with its install command, copy-paste setup
 instructions for every published repository, and the sync status of each watched repo. `rehost-gh` only speaks plain HTTP; put TLS in front of it (for example `tailscale serve`).
 
-Edits to `data/rehost-gh.toml` are picked up automatically. `docker compose kill -s HUP rehost-gh` forces a resync.
+Edits to `data/rehost-gh.toml` are picked up automatically. "Refresh now" on the index page forces a resync, as does
+`docker compose kill -s HUP rehost-gh`.
 
 ## The data folder
 
@@ -61,7 +62,7 @@ Back up `gnupg/`: clients trust that key, and losing it means re-trusting a new 
 
 Arch packages are signed individually with the rehost-gh key, so pacman's default `SigLevel` works once the key is
 trusted. RPMs keep upstream's signatures, so the dnf config uses `repo_gpgcheck=1` with `gpgcheck=0`. Android
-`android-update.json` names the newest APK by `versionCode`; point the app's `androidUpdateMetadataUrl` at that file.
+`android-update.json` names the newest APK by `versionCode`. Point the Flutter client at that file; [docs/android-updater.md](docs/android-updater.md) has the field list and install flow.
 
 ## Development
 

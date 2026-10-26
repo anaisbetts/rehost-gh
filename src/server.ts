@@ -13,6 +13,8 @@ export interface ServerOptions {
   dataDir: string
   state: State
   config: () => Config
+  /** Re-polls every watched GitHub repo immediately. Absent means the UI has nothing to refresh. */
+  refresh?: () => Promise<void>
 }
 
 /** Serves the published tree as static files, plus `/healthz` and an index page with setup instructions. */
@@ -21,6 +23,7 @@ export function startServer(options: ServerOptions) {
     port: options.port,
     async fetch(req) {
       const url = new URL(req.url)
+      if (url.pathname === '/refresh') return refreshNow(req, options)
       if (req.method !== 'GET' && req.method !== 'HEAD') return new Response('Method not allowed', { status: 405 })
 
       if (url.pathname === '/healthz') return new Response('ok\n')
@@ -94,6 +97,18 @@ async function indexPage(req: Request, url: URL, options: ServerOptions): Promis
   return new Response(renderIndexPage(`${proto}://${host}`, manifest, watches, options.state.assets()), {
     headers: { 'Content-Type': 'text/html; charset=utf-8' },
   })
+}
+
+/** Runs a full resync of every watched repo, then sends the browser back to the index page. */
+async function refreshNow(req: Request, options: ServerOptions): Promise<Response> {
+  if (req.method !== 'POST' || !options.refresh) return new Response('Method not allowed', { status: 405 })
+
+  try {
+    await options.refresh()
+  } catch (e) {
+    console.error(`Manual refresh failed: ${(e as Error).message}`)
+  }
+  return new Response(null, { status: 303, headers: { Location: '/' } })
 }
 
 /** Parses a single `bytes=start-end` range, which is all package managers ever send. */
