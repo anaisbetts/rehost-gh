@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: boat
     steps:
       - uses: actions/checkout@v7
 
@@ -37,7 +37,7 @@ jobs:
 
   # Builds the image and installs packages from it with real pacman, apt and dnf clients.
   integration:
-    runs-on: ubuntu-latest
+    runs-on: boat
     steps:
       - uses: actions/checkout@v7
 
@@ -55,7 +55,7 @@ jobs:
     needs: [build, integration]
     # Images: `main` on default branch; version tag + `latest` when a GitHub Release is published.
     if: success() && (github.ref == 'refs/heads/main' || github.event_name == 'release')
-    runs-on: ubuntu-latest
+    runs-on: boat
     permissions:
       contents: read
       packages: write
